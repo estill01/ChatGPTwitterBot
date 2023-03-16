@@ -1,5 +1,4 @@
 import tweepy
-from ratelimiter import RateLimiter
 from gptwitter_bot.pricing import Pricing
 from gptwitter_bot.trackers import BudgetTracker
 from gptwitter_bot.trackers import StatTracker

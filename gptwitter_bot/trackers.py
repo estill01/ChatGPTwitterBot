@@ -1,7 +1,7 @@
-import datetime
-from tiktoken import Tokenizer, TokenizerConfig
 from datetime import datetime, timedelta
 from gptwitter_bot.pricing import Pricing
+from gptwitter_bot.cost_calculator import CostCalculator
+from gptwitter_bot.treasury import Treasury
 
 class BaseTracker:
     def __init__(self, data_type):
@@ -40,83 +40,86 @@ class TweetTracker(BaseTracker):
 
 
 class RevenueTracker(BaseTracker):
-    def __init__(self):
-        super().__init__()
-
-    def log_revenue(self, amount):
-        self._log(amount)
+    def log_revenue(self, amount: float, source: str):
+        self._log({"action": "revenue", "amount": amount, "source": source})
 
 
 class SpendTracker(BaseTracker):
-    def __init__(self):
-        super().__init__("spending_data")
-
-    def log_spend(self, amount, timestamp=None):
-        self._log(amount, timestamp)
+    def log_spend(self, amount: float, category: str):
+        self._log({"action": "spend", "amount": amount, "category": category})
 
 
 class BudgetTracker(BaseTracker):
-    def __init__(self, initial_budget, cycle_duration=timedelta(days=30), auto_allocation=None, spend_tracker=None, revenue_tracker=None):
+    def __init__(
+        self,
+        treasury: Treasury,
+        initial_budget: float,
+        budget_cycle_duration: datetime.timedelta = datetime.timedelta(days=30),
+        auto_allocation: float = 0.0,
+        spend_tracker: SpendTracker = None,
+        revenue_tracker: RevenueTracker = None,
+    ):
         super().__init__()
-        self.initial_budget = initial_budget
-        self.cycle_duration = cycle_duration
-        self.auto_allocation = auto_allocation or initial_budget
-        self.spend_tracker = spend_tracker
-        self.revenue_tracker = revenue_tracker
-        self.start_date = datetime.now()
-        self._allocation = self.initial_budget
+        self.treasury = treasury
+        self.budget_cycle_duration = budget_cycle_duration
+        self.auto_allocation = auto_allocation
+        self.spend_tracker = spend_tracker or SpendTracker()
+        self.revenue_tracker = revenue_tracker or RevenueTracker()
+        self.budget_cycle_start_time = datetime.datetime.now()
+        self.remaining_budget = initial_budget
 
-    def remaining_time_in_cycle(self):
-        now = datetime.now()
-        time_since_start = now - self.start_date
-        time_until_next_cycle = self.cycle_duration - time_since_start
-        return time_until_next_cycle
-
-    def in_new_cycle(self):
-        return datetime.now() >= self.start_date + self.cycle_duration
-
-    def reset_cycle(self):
-        if self.in_new_cycle():
-            self.start_date = datetime.now()
-            self._allocation = self.auto_allocation
-
-    def update_budget(self, tokens):
-        cost = self.calculate_cost(tokens)
-        remaining_budget = self._allocation - self.spend_tracker.total
-
-        if remaining_budget >= cost:
-            self.spend_tracker.log_spend(cost)
-            self._log("spend", cost)
-            return True
-
-        return False
-
-    def allocate_budget(self, amount):
-        self._allocation += amount
-        self._log("allocate", amount)
-
-    def deallocate_budget(self, amount):
-        if amount <= self._allocation:
-            self._allocation -= amount
-            self._log("deallocate", amount)
+    def spend(self, amount: float):
+        if amount <= self.remaining_budget:
+            self.remaining_budget -= amount
+            self.spend_tracker.log_spend(amount)
         else:
-            raise ValueError("Cannot deallocate more than the current allocation.")
+            raise ValueError("Insufficient budget")
 
-    def calculate_cost(self, tokens):
-        return tokens * self.spend_tracker.pricing.completion_cost / 1000
+    def increase_budget(self, amount: float):
+        self.remaining_budget += amount
+        self.log_budget_increase(amount)
 
-    @property
-    def remaining_budget(self):
-        remaining_budget = self._allocation - self.spend_tracker.total
-        return max(0, remaining_budget)
+    def decrease_budget(self, amount: float):
+        if amount <= self.remaining_budget:
+            self.remaining_budget -= amount
+            self.log_budget_decrease(amount)
+        else:
+            raise ValueError("Insufficient budget")
 
-    def replenish_budget(self):
-        if self.revenue_tracker:
-            revenue = self.revenue_tracker.total
-            allocation_amount = min(revenue, self.auto_allocation)
-            self.allocate_budget(allocation_amount)
-            self.revenue_tracker.reset_total()
+    def set_budget(self, new_budget: float):
+        if new_budget >= 0:
+            diff = new_budget - self.remaining_budget
+            if diff >= 0:
+                self.increase_budget(diff)
+            else:
+                self.decrease_budget(abs(diff))
+        else:
+            raise ValueError("Invalid budget value")
 
-    def should_replenish_budget(self):
-        return self.in_new_cycle()
+    def log_budget_increase(self, amount: float):
+        self._log({"action": "budget_increase", "amount": amount})
+
+    def log_budget_decrease(self, amount: float):
+        self._log({"action": "budget_decrease", "amount": amount})
+
+    def log_end_of_cycle_remaining_budget(self, amount: float):
+        self._log({"action": "end_of_cycle_remaining_budget", "amount": amount})
+
+    def remaining_budget_cycle_time(self) -> datetime.timedelta:
+        time_since_cycle_start = datetime.datetime.now() - self.budget_cycle_start_time
+        return self.budget_cycle_duration - time_since_cycle_start
+
+    def reset_budget_cycle(self):
+        self.log_end_of_cycle_remaining_budget(self.remaining_budget)
+        self.budget_cycle_start_time = datetime.datetime.now()
+        allocated_value = self.treasury.allocate_value(self.auto_allocation)
+        self.increase_budget(allocated_value)
+
+    def change_budget_cycle_duration(self, new_duration: datetime.timedelta):
+        self.log_budget_cycle_duration_change(self.budget_cycle_duration, new_duration)
+        self.budget_cycle_duration = new_duration
+
+    def log_budget_cycle_duration_change(self, old_duration: datetime.timedelta, new_duration: datetime.timedelta):
+        self._log({"action": "budget_cycle_duration_change", "old_duration": old_duration, "new_duration": new_duration})
+
 

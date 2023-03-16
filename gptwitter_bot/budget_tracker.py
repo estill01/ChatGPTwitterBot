@@ -1,6 +1,7 @@
 import datetime
 from tiktoken import Tokenizer, TokenizerConfig
-from .pricing import Pricing
+from gptwitter_bot.pricing import Pricing
+from gptwitter_bot.spend_tracker import SpendTracker
 
 class BudgetTracker:
      def __init__(self, initial_budget, pricing):
@@ -9,6 +10,7 @@ class BudgetTracker:
          self.pricing = pricing
          self.last_replenish_date = datetime.datetime.now()
          self.tokenizer = Tokenizer(TokenizerConfig())
+         self.spend_tracker = SpendTracker()
 
      def count_tokens(self, text):
          return sum(1 for _ in self.tokenizer.tokenize(text))
@@ -29,6 +31,7 @@ class BudgetTracker:
          cost = self.calculate_cost(tokens)
          if self.remaining_budget >= cost:
              self.remaining_budget -= cost
+             self.spend_tracker.log_spend(cost)
              return True
          return False
 

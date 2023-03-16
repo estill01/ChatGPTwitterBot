@@ -1,14 +1,14 @@
 import tweepy
 from ratelimiter import RateLimiter
 from gptwitter_bot.pricing import Pricing
-from gptwitter_bot.budget_tracker import BudgetTracker
+from gptwitter_bot.trackers import BudgetTracker
+from gptwitter_bot.trackers import StatTracker
 
 
 class TwitterBot:
      def __init__(self, budget, pricing, handle, models):
-         # TODO Rate limiting should be done based on collected stats from how quickly you're spending your budget..
-         self.rate_limiter = RateLimiter(max_calls=20, period=3600)  # Limit to 20 calls per hour
          self.budget_tracker = BudgetTracker(budget, pricing)
+         self.stat_tracker = StatTracker() # TODO .. actually use this, or delete
          self.handle = handle
          self.models = models
 
@@ -46,14 +46,19 @@ class TwitterBotStreamListener(tweepy.StreamListener):
          # TODO Fix -- choose model more dynamically
          model_key = "gpt_4_8k"  
          tokens = self.twitter_bot.budget_tracker.calculate_tokens(prompt, 150)
+
          if self.twitter_bot.budget_tracker.update_budget(tokens):
              response = self.twitter_bot.generate_response(prompt, model_key)
 
          if response:
+             self.twitter_bot.budget_tracker.spend_tracker.log_tweet(status.id)
+
              reply = f"@{status.user.screen_name} {response}"
              self.api.update_status(status=reply, in_reply_to_status_id=status.id)
 
      def on_error(self, status_code):
          if status_code == 420:
              return False
+
+
 

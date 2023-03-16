@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "gptwitter-bot"
+version = "0.1.0"
+description = ""
+authors = ["estill01 <ehs.stillman@gmail.com>"]
+readme = "README.md"
+packages = [{include = "gptwitter_bot"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+python-dotenv = "^1.0.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

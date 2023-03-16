@@ -1,7 +1,7 @@
 import tweepy
-from gptwitter_bot.pricing import Pricing
 from gptwitter_bot.trackers import BudgetTracker
 from gptwitter_bot.trackers import StatTracker
+from gptwitter_bot.cost_calculation import CostCalculator
 
 
 class TwitterBot:

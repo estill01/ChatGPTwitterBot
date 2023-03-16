@@ -1,6 +1,4 @@
 from datetime import datetime, timedelta
-from gptwitter_bot.pricing import Pricing
-from gptwitter_bot.cost_calculator import CostCalculator
 from gptwitter_bot.treasury import Treasury
 
 class BaseTracker:
@@ -66,29 +64,45 @@ class BudgetTracker(BaseTracker):
         self.spend_tracker = spend_tracker or SpendTracker()
         self.revenue_tracker = revenue_tracker or RevenueTracker()
         self.budget_cycle_start_time = datetime.datetime.now()
+        self.budget = initial_budget
         self.remaining_budget = initial_budget
 
+    def can_spend(self, amount: float) -> bool:
+        return amount <= self.remaining_budget
+
     def spend(self, amount: float):
-        if amount <= self.remaining_budget:
+        if self.can_spend(amount):
             self.remaining_budget -= amount
             self.spend_tracker.log_spend(amount)
         else:
             raise ValueError("Insufficient budget")
 
+    def receive_allocation(self, amount: float):
+        allocation_received = self.treasury.allocate_value(amount)
+        self.remaining_budget += allocation_received
+        if self.remaining_budget > self.budget:
+            additional_budget = self.remaining_budget - self.budget
+            self.increase_budget(additional_budget)
+            print(f"Warning: Remaining budget ({self.remaining_budget}) is larger than the total budget ({self.budget}). Total budget has been updated.")
+
     def increase_budget(self, amount: float):
-        self.remaining_budget += amount
+        self.budget += amount
         self.log_budget_increase(amount)
 
     def decrease_budget(self, amount: float):
-        if amount <= self.remaining_budget:
-            self.remaining_budget -= amount
+        if amount <= self.total_budget:
+            self.budget -= amount
+            if self.budget < self.remaining_budget:
+                difference = self.remaining_budget - self.budget
+                self.remaining_budget = self.budget
+                self.treasury.deposit_value(difference)
             self.log_budget_decrease(amount)
         else:
             raise ValueError("Insufficient budget")
 
     def set_budget(self, new_budget: float):
         if new_budget >= 0:
-            diff = new_budget - self.remaining_budget
+            diff = new_budget - self.budget
             if diff >= 0:
                 self.increase_budget(diff)
             else:
@@ -96,19 +110,11 @@ class BudgetTracker(BaseTracker):
         else:
             raise ValueError("Invalid budget value")
 
-    def log_budget_increase(self, amount: float):
-        self._log({"action": "budget_increase", "amount": amount})
-
-    def log_budget_decrease(self, amount: float):
-        self._log({"action": "budget_decrease", "amount": amount})
-
-    def log_end_of_cycle_remaining_budget(self, amount: float):
-        self._log({"action": "end_of_cycle_remaining_budget", "amount": amount})
-
     def remaining_budget_cycle_time(self) -> datetime.timedelta:
         time_since_cycle_start = datetime.datetime.now() - self.budget_cycle_start_time
         return self.budget_cycle_duration - time_since_cycle_start
 
+    # TODO a bit funky that BudgetTracker is reaching into Treasury's domain and taking value rather than requesting it and getting approval
     def reset_budget_cycle(self):
         self.log_end_of_cycle_remaining_budget(self.remaining_budget)
         self.budget_cycle_start_time = datetime.datetime.now()
@@ -118,6 +124,15 @@ class BudgetTracker(BaseTracker):
     def change_budget_cycle_duration(self, new_duration: datetime.timedelta):
         self.log_budget_cycle_duration_change(self.budget_cycle_duration, new_duration)
         self.budget_cycle_duration = new_duration
+
+    def log_budget_increase(self, amount: float):
+        self._log({"action": "budget_increase", "amount": amount})
+
+    def log_budget_decrease(self, amount: float):
+        self._log({"action": "budget_decrease", "amount": amount})
+
+    def log_end_of_cycle_remaining_budget(self, amount: float):
+        self._log({"action": "end_of_cycle_remaining_budget", "amount": amount})
 
     def log_budget_cycle_duration_change(self, old_duration: datetime.timedelta, new_duration: datetime.timedelta):
         self._log({"action": "budget_cycle_duration_change", "old_duration": old_duration, "new_duration": new_duration})

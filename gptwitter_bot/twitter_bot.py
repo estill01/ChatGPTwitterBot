@@ -4,7 +4,7 @@ from gptwitter_bot.cost_calculator import CostCalculator
 
 
 class TwitterBot:
-    def __init__(self, api_key, api_key_secret, access_token, access_token_secret, budget_tracker, handle, models):
+    def __init__(self, api_key, api_key_secret, access_token, access_token_secret, budget_tracker, handle, models, cost_calculator):
         self.auth = tweepy.OAuthHandler(api_key, api_key_secret)
         self.auth.set_access_token(access_token, access_token_secret)
         self.twitter_api = tweepy.API(self.auth)
@@ -13,7 +13,7 @@ class TwitterBot:
         self.stat_tracker = StatTracker()
         self.handle = handle
         self.models = models
-        self.cost_calculator = CostCalculator()
+        self.cost_calculator = cost_calculator
 
     def generate_response(self, prompt, model_key):
         tokens = self.cost_calculator.count_tokens(prompt)

@@ -47,6 +47,7 @@ class SpendTracker(BaseTracker):
         self._log({"action": "spend", "amount": amount, "category": category})
 
 
+# TODO Probably want to create Treasury outside of BudgetTracker and then pass in a reference to it
 class BudgetTracker(BaseTracker):
     def __init__(
         self,

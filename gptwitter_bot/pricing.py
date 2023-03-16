@@ -1,3 +1,4 @@
+# TODO this is basically junk right now..
 class Pricing:
     def __init__(self, model, prompt_cost, completion_cost=None):
         self.model = model

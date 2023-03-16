@@ -6,6 +6,7 @@ from gptwitter_bot.budget_tracker import BudgetTracker
 
 class TwitterBot:
      def __init__(self, budget, pricing, handle, models):
+         # TODO Rate limiting should be done based on collected stats from how quickly you're spending your budget..
          self.rate_limiter = RateLimiter(max_calls=20, period=3600)  # Limit to 20 calls per hour
          self.budget_tracker = BudgetTracker(budget, pricing)
          self.handle = handle

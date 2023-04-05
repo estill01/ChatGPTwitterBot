@@ -1,5 +1,5 @@
 # GPTwitterBot 🤖 🐦
-Welcome to GPTwitterBot! This bot generates text, images, and polls in response to tweets mentioning it. 
+Welcome to GPTwitterBot! This bot auto-engages the twitterverse to maximize engagement. 
 
 Worried about the cost of running the bot? Well don't! GPTwitterBot comes with a built-in Budget Tracker to limit its expenditures on API usage. 🎉
 
